@@ -94,6 +94,7 @@ def multi_hash(name,iterCount):
     #Each iter start with N-character string and make it's length N*i
     #where i is the i-th iteration.
     refName = name
+    timeArray = []
     for i in range(iterCount):
 
         #Scale length of name by iteration and convert to char
@@ -106,20 +107,23 @@ def multi_hash(name,iterCount):
         #Launch kernel
         #Only need global ID, no need for local
         prg = cl.Program(ctx, kernel).build()
-        prg.func(queue, name.shape, None, name_dev.data, b_dev.data)
 
+        event = prg.func(queue, name.shape, None, name_dev.data, b_dev.data)
+        event.wait()
+        timeArray.append(1e-9*(event.profile.end-event.profile.start))
         hashed = b_dev.get()
 
-        print('input a: %s' % name)
-        print('golden hash: %s' % ([i % 17 for i in name]))
-        print('output hash: %s' % hashed)
-        print('-------------\n')
+        # print('input a: %s' % name)
+        # print('golden hash: %s' % ([i % 17 for i in name]))
+        # print('output hash: %s' % hashed)
+        # print('-------------\n')
+
+    print('opencl time:  %.15f' % np.average(timeArray))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('name')
     parser.add_argument('--multiIter', type=int)
-    parser.add_argument('--time', type=int)
 
     args = parser.parse_args()
     if args.multiIter:
