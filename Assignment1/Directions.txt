@@ -1,0 +1,44 @@
+Important Note: Please keep backing up your code regularly. In case of any issues using the server, it is not possible for us to recover your code for you.
+Use scp/FileZilla to copy the code locally to your computers or use github/bitbucket for source & version control.
+
+Programming (100 pts)
+
+The dictionary is an important and powerful data structure in Python. It keeps key:value pairs within the dictionary.
+
+Usually, the keys and values are stored in arrays, since an array has a random-access property which makes constant time accessing possible.
+
+Since the key does not have to be an integer, mapping from the key to the index is required. A widely used method to do the mapping is hash.
+
+Hash is also constant time (amortized), which ensures the dictionary operations are fast. (If you want to learn more about how dictionary works in Python, watch the following vedio[PyCon 2010: The Mighty Dictionary (video)])
+
+One popular and simple hash method is the division method. h(k) = k mod m. k is the key, m is usually a prime number larger than the table size.
+
+Say the key here is “Xiangfeng” , and the m is 17. To map the key to an index, we will add up the ASCII codes of every character in the key. So, the k in the function above is 919, then we have h(919) = 919 mod 17 = 1.
+
+For practice sake, we will view each character as a key, and use the method above to find the corresponding indices (regardless of collisions). Fix the valued of m to 17.
+
+For example, the key “Xiangfeng” will have the corresponding indices as follows: [3, 3, 12, 8, 1, 0, 16, 8, 1]. The key “Hung”’s indices are [4, 15, 8, 1].
+
+
+1. (10 pts) Input your name as an array of characters. Implement this simple hash in Python (or C/C++).
+
+2. (15pts for Py/OpenCL + 15pts for Py/CUDA) Implement the same using: pyOpenCL/OpenCL and pyCUDA/CUDA.
+
+3. (20pts for Py/OpenCL + 20pts for Py/CUDA) Repeat parts 1 & 2 with other string lengths. Follow the steps:
+Create a loop. In this loop, you would be implementing both your Python (or C) logic as well as call function to PyOpenCL (or OpenCL). Similar steps are to be repeated in pyCUDA (or CUDA).
+In the first iteration, start with an N-character string (where 'N' is the number of letters in your name). In the following iterations, the input length is N * i, where i is the i-th iteration.
+You may choose repeated iterations of your name, for example "Xiangfeng" (1st iteration), "XiangfengXiangfeng" (2nd iteration) etc., or use an entirely random set of alphabetic strings.
+
+4. (20 pts) Determine at what number of letters does the GPU (OpenCL/CUDA) execution time become shorter then the CPU-only (Python) execution time. You can do this by setting a timer (create a timer arrays which will store values corresponding to each iteration - one for python and one for GPU logic) as shown in vector addition tutorial. Set the timer start and timer end as follows:
+For python, put the 'start' just before the implementation of the core logic (Hash mapping), and put the 'end' just after the logic ends, in every iteration of the loop.
+For GPU code, the 'start' should be just before making a kernel function call, and the 'end' should be just after the kernel function call, in every iteration of the loop.
+For every iteration, the values will be stored in a new element of the timer arrays.
+For CPU and GPU logic, plot the time taken for each iteration as a function of the number of letters.
+
+
+Theory (20 pts - 5 pts for each question)
+
+1.What is the difference between a thread, a task and a process?
+2.What are the differences between concurrency and parallelism?
+3.Why not replace GPU with CPU?
+4.What are the advantages and disadvantages of using Python over C/C++?
