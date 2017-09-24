@@ -1,9 +1,15 @@
-import argparse
-import pdb
-import numpy as np
 import time
+import argparse
 
-def simple_hash(name):
+import numpy as np
+
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+
+import pdb
+
+def python_simple_hash(name):
     """
     Simple python hash
     Input:
@@ -17,9 +23,9 @@ def simple_hash(name):
     for char in name:
         hashed[count]=ord(char) % 17
         count+=1
-    print(hashed)
+    # print(hashed)
 
-def multi_hash(name,iterCount):
+def python_multi_hash(name,iterCount):
     """
     MultiIter python hash
     Input:
@@ -32,19 +38,32 @@ def multi_hash(name,iterCount):
     #Each iter start with N-character string and make it's length N*i
     #where i is the i-th iteration.
     timeArray = []
+    nameLength = []
     refName = name
     for i in range(iterCount):
-        hashed = np.zeros(len(refName)*iterCount).astype(int)
+        hashed = np.zeros(len(refName)*(i+1)).astype(int)
         count=0
         name = refName*(i+1)
+        start = time.time()
         for char in name:
-            start = time.time()
             hashed[count]=ord(char) % 17
-            timeArray.append(time.time()-start)
             count+=1
+        timeArray.append(time.time()-start)
+        nameLength.append(len(hashed))
 
-    #print(hashed)
+    # print(hashed)
     print('python time:  %.15f' % np.average(timeArray))
+
+    plt.gcf()
+    ax = plt.figure().add_subplot(111)
+    ax.plot(nameLength, timeArray)
+    plt.xlabel('InputSize (number of chars)')
+    plt.ylabel('RunTime (s)')
+    plt.title("pythonCPU RunTime vs InputSize")
+    plt.gca().set_xlim((min(nameLength), max(nameLength)))
+    plt.autoscale()
+    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.3e'))
+    plt.savefig('CPU_plot.png',bbox_inches='tight')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -53,6 +72,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if args.multiIter:
-        multi_hash(list(args.name),args.multiIter)
+        python_multi_hash(list(args.name),args.multiIter)
     else:
-        simple_hash(list(args.name))
+        python_simple_hash(list(args.name))
