@@ -38,12 +38,11 @@ def setup_CL():
 
 def simple_hash(name):
     """
-    MultiIter python hash
+    MultiIter openCL hash
     Input:
         name: list of chars (string converted to list)
-        iterCount: number of iterations in for loop
     Return: None
-    Output: prints hash of character multiIter times
+    Output: prints hash of characters
     """
 
     #Setup openCL
@@ -69,19 +68,22 @@ def simple_hash(name):
     #Launch kernel
     #Only need global ID, no need for local
     prg = cl.Program(ctx, kernel).build()
-    prg.func(queue, name.shape, None, name_dev, b_dev)
+    event = prg.func(queue, name.shape, None, name_dev, b_dev)
+    event.wait()
+    tmp = 1e-9*(event.profile.end-event.profile.start)
 
     #Save output
     hashed = np.empty_like(name)
     cl.enqueue_copy(queue, hashed, b_dev)
 
-    print('input a: %s' % name)
     print('golden hash: %s' % [i % 17 for i in name])
     print('openCL hash: %s' % hashed)
+    print('opencl single time:  %.15f' % tmp)
+
 
 def multi_hash(name,iterCount):
     """
-    MultiIter python hash
+    MultiIter openCL hash
     Input:
         name: list of chars (string converted to list)
         iterCount: number of iterations in for loop
@@ -135,12 +137,21 @@ def multi_hash(name,iterCount):
         hashed = np.empty_like(name)
         cl.enqueue_copy(queue, hashed, b_dev)
         nameLength.append(len(hashed))
+
+        comp = sum(hashed==[i % 17 for i in name])==hashed.shape[0]
+        if not(comp):
+            print('golden hash: %s' % ([i % 17 for i in name]))
+            print('opencl hash: %s' % hashed)
+
         # print('input a: %s' % name)
         # print('golden hash: %s' % ([i % 17 for i in name]))
         # print('output hash: %s' % hashed)
         # print('-------------\n')
 
-    print('opencl time:  %.15f' % np.average(timeArray))
+    print('golden hash: %s' % [i % 17 for i in name])
+    print('opencl multi hash: %s' % hashed)
+    print('opencl multi time:  %s' % timeArray)
+    print('opencl avg multi time: %.15f' % np.average(timeArray))
 
     #Plot
     plt.gcf()
@@ -155,6 +166,7 @@ def multi_hash(name,iterCount):
     plt.ticklabel_format(axis='y',style='sci')
     ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.3e'))
     plt.savefig('GPU_openCL_plot.png')
+    return timeArray
 
 def python_simple_hash(name):
     """
@@ -167,10 +179,14 @@ def python_simple_hash(name):
 
     hashed = np.zeros(len(name)).astype(int)
     count=0
+    start = time.time()
     for char in name:
         hashed[count]=ord(char) % 17
         count+=1
-    # print(hashed)
+        end = time.time()-start
+
+    print('python golden hash: %s' % hashed)
+    print('python single runtime: %.15f' % end)
 
 def python_multi_hash(name,iterCount):
     """
@@ -198,8 +214,9 @@ def python_multi_hash(name,iterCount):
         timeArray.append(time.time()-start)
         nameLength.append(len(hashed))
 
-    # print(hashed)
-    print('python time:  %.15f' % np.average(timeArray))
+    print('python multi: %s' % hashed)
+    print('python multi time:  %s' % timeArray)
+    print('python avg multi time: %.15f' % np.average(timeArray))
 
     #Plot
     plt.gcf()
@@ -212,8 +229,9 @@ def python_multi_hash(name,iterCount):
     plt.autoscale()
     plt.tight_layout()
     plt.ticklabel_format(axis='y',style='sci')
-    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.3e'))
+    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2e'))
     plt.savefig('CPU_plot.png',bbox_inches='tight')
+    return timeArray
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -222,8 +240,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if args.multiIter:
-        multi_hash(list(args.name),args.multiIter)
-        python_multi_hash(list(args.name), args.multiIter)
+        tA_opcl=multi_hash(list(args.name),args.multiIter)
+        tA_pyth=python_multi_hash(list(args.name), args.multiIter)
+
+        for i in range(1,len(tA_opcl)):
+            if tA_opcl[i-1]<=tA_pyth[i-1] and tA_opcl[i]<=tA_pyth[i]:
+                print("OpenCL was faster after the %d step" % (i*len(list(args.name))))
+                break
     else:
         simple_hash(list(args.name))
         python_simple_hash(list(args.name))

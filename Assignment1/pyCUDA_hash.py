@@ -5,6 +5,8 @@ from pycuda import driver, compiler, gpuarray, tools
 import pycuda.autoinit
 
 import numpy as np
+import string
+import random
 import os
 
 import matplotlib as mpl
@@ -15,12 +17,11 @@ import pdb
 
 def simple_hash(name):
     """
-    MultiIter python hash
+    MultiIter CUDA hash
     Input:
         name: list of chars (string converted to list)
-        iterCount: number of iterations in for loop
     Return: None
-    Output: prints hash of character multiIter times
+    Output: prints hash of characters
     """
 
     #Setup CUDA
@@ -49,7 +50,13 @@ def simple_hash(name):
 
     #Launch kernel
     #Number of threads equal to size of name
+    start = driver.Event()
+    end   = driver.Event()
+    start.record()
     func(name_dev, b_dev, block = (name.shape[0],1,1))
+    end.record()
+    end.synchronize()
+    tmp = 1e-3*start.time_till(end)
 
     # prg = cl.Program(ctx, kernel).build()
     # prg.func(queue, name.shape, None, name_dev, b_dev)
@@ -57,13 +64,13 @@ def simple_hash(name):
     #Save output
     hashed = b_dev.get()
 
-    print('input a: %s' % name_dev.get())
     print('golden hash: %s' % [i % 17 for i in name])
-    print('output hash: %s' % hashed)
+    print('CUDA hash: %s' % hashed)
+    print('CUDA single time:  %.15f' % tmp)
 
 def multi_hash(name,iterCount):
     """
-    MultiIter python hash
+    MultiIter CUDA hash
     Input:
         name: list of chars (string converted to list)
         iterCount: number of iterations in for loop
@@ -84,7 +91,7 @@ def multi_hash(name,iterCount):
     refName = name
     timeArray = []
     nameLength = []
-    avgRunCount = 1000
+    avgRunCount = 10
     for i in range(iterCount):
 
         #Scale length of name by iteration and convert to char
@@ -127,11 +134,13 @@ def multi_hash(name,iterCount):
         if not(comp):
             print('input a: %s' % name)
             print('golden hash: %s' % ([i % 17 for i in name]))
-            print('output hash: %s' % hashed)
-            print('len: %d, sum: %d' % (hashed.shape[0],sum(hashed==[i % 17 for i in name])))
+            print('CUDA multi hash: %s' % hashed)
         # print('-------------\n')
 
-    print('cuda time:  %.15f' % np.average(timeArray))
+    print('golden hash: %s' % [i % 17 for i in name])
+    print('CUDA multi hash: %s' % hashed)
+    print('CUDA multi time:  %s' % timeArray)
+    print('CUDA avg multi time: %.15f' % np.average(timeArray))
 
     #Plot
     plt.gcf()
@@ -144,19 +153,9 @@ def multi_hash(name,iterCount):
     plt.autoscale()
     plt.tight_layout()
     plt.ticklabel_format(axis='y',style='sci')
-    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.3e'))
+    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2e'))
     plt.savefig('GPU_CUDA_plot.png')
-
-import time
-import argparse
-
-import numpy as np
-
-import matplotlib as mpl
-mpl.use('agg')
-import matplotlib.pyplot as plt
-
-import pdb
+    return timeArray
 
 def python_simple_hash(name):
     """
@@ -169,10 +168,14 @@ def python_simple_hash(name):
 
     hashed = np.zeros(len(name)).astype(int)
     count=0
+    start = time.time()
     for char in name:
         hashed[count]=ord(char) % 17
         count+=1
-    # print(hashed)
+        end = time.time()-start
+
+    print('python golden hash: %s' % hashed)
+    print('python single runtime: %.15f' % end)
 
 def python_multi_hash(name,iterCount):
     """
@@ -200,8 +203,9 @@ def python_multi_hash(name,iterCount):
         timeArray.append(time.time()-start)
         nameLength.append(len(hashed))
 
-    # print(hashed)
-    print('python time:  %.15f' % np.average(timeArray))
+    print('python multi: %s' % hashed)
+    print('python multi time:  %s' % timeArray)
+    print('python avg multi time: %.15f' % np.average(timeArray))
 
     #Plot
     plt.gcf()
@@ -214,8 +218,9 @@ def python_multi_hash(name,iterCount):
     plt.autoscale()
     plt.tight_layout()
     plt.ticklabel_format(axis='y',style='sci')
-    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.3e'))
+    ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2e'))
     plt.savefig('CPU_plot.png',bbox_inches='tight')
+    return timeArray
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -224,8 +229,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if args.multiIter:
-        multi_hash(list(args.name),args.multiIter)
-        python_multi_hash(list(args.name), args.multiIter)
+        tA_cuda=multi_hash(list(args.name),args.multiIter)
+        tA_pyth=python_multi_hash(list(args.name), args.multiIter)
+
+        for i in range(1,len(tA_cuda)):
+            if tA_cuda[i-1]<=tA_pyth[i-1] and tA_cuda[i]<=tA_pyth[i]:
+                print("CUDA was faster after the %d step" % (i*len(list(args.name))))
+                break
     else:
         simple_hash(list(args.name))
         python_simple_hash(list(args.name))
