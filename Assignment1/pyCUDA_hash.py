@@ -24,14 +24,15 @@ def simple_hash(name):
     Output: prints hash of characters
     """
 
-    #Setup CUDA
-
+    #Ord(char) returns the ascii number for some character
     name = np.array([ord(char) for char in name]).astype(np.int32)
 
+
+    #Setup CUDA
     #CUDA Kernel
     kernel = """
     __global__ void func(int* a, int* b) {
-        const int i = threadIdx.x;
+        int i = threadIdx.x;
         b[i] = a[i] % 17;
     }
     """
@@ -66,6 +67,7 @@ def simple_hash(name):
 
     print('golden hash: %s' % [i % 17 for i in name])
     print('CUDA hash: %s' % hashed)
+    print('CUDA==golden: %s' % (sum(hashed==[i % 17 for i in name])==hashed.shape[0]))
     print('CUDA single time:  %.15f' % tmp)
 
 def multi_hash(name,iterCount):
@@ -81,7 +83,7 @@ def multi_hash(name,iterCount):
     #CUDA Kernel
     kernel = """
     __global__ void func(int* a, int* b) {
-        unsigned int i = threadIdx.x;
+        int i = threadIdx.x;
         b[i] = a[i] % 17;
     }
     """
@@ -95,6 +97,7 @@ def multi_hash(name,iterCount):
     for i in range(iterCount):
 
         #Scale length of name by iteration and convert to char
+        #Ord(char) returns the ascii number for some character
         name = np.array([ord(char) for char in refName]*(i+1)).astype(np.int32)
 
         #Move data to device
@@ -118,8 +121,9 @@ def multi_hash(name,iterCount):
             #Number of threads equal to size of name
             start = driver.Event()
             end   = driver.Event()
+            val = name.shape[0]
             start.record()
-            func(name_dev, b_dev, block = (name.shape[0],1, 1))
+            func(name_dev, b_dev, block = (val,1, 1))
             end.record()
             end.synchronize()
             tmp.append(1e-3*start.time_till(end))
@@ -139,6 +143,7 @@ def multi_hash(name,iterCount):
 
     print('golden hash: %s' % [i % 17 for i in name])
     print('CUDA multi hash: %s' % hashed)
+    print('CUDA==golden: %s' % (sum(hashed==[i % 17 for i in name])==hashed.shape[0]))
     print('CUDA multi time:  %s' % timeArray)
     print('CUDA avg multi time: %.15f' % np.average(timeArray))
 
@@ -168,9 +173,12 @@ def python_simple_hash(name):
 
     hashed = np.zeros(len(name)).astype(int)
     count=0
+    #Ord(char) returns the ascii number for some character
+    name = [ord(char) for char in name]
     start = time.time()
+    #Hash all chars
     for char in name:
-        hashed[count]=ord(char) % 17
+        hashed[count]=char % 17
         count+=1
         end = time.time()-start
 
@@ -196,14 +204,17 @@ def python_multi_hash(name,iterCount):
         hashed = np.zeros(len(refName)*(i+1)).astype(int)
         count=0
         name = refName*(i+1)
+        #Ord(char) returns the ascii number for some character
+        name = [ord(char) for char in name]
         start = time.time()
+        #Hash all chars
         for char in name:
-            hashed[count]=ord(char) % 17
+            hashed[count]=char % 17
             count+=1
         timeArray.append(time.time()-start)
         nameLength.append(len(hashed))
 
-    print('python multi: %s' % hashed)
+    #print('python multi: %s' % hashed)
     print('python multi time:  %s' % timeArray)
     print('python avg multi time: %.15f' % np.average(timeArray))
 
@@ -233,6 +244,7 @@ if __name__ == '__main__':
         tA_pyth=python_multi_hash(list(args.name), args.multiIter)
 
         for i in range(1,len(tA_cuda)):
+	    # print("Comparing cuda to pyth: %s:%s %s:%s" % (tA_cuda[i-1], tA_pyth[i-1], tA_cuda[i], tA_pyth[i]))
             if tA_cuda[i-1]<=tA_pyth[i-1] and tA_cuda[i]<=tA_pyth[i]:
                 print("CUDA was faster after the %d step" % (i*len(list(args.name))))
                 break

@@ -48,6 +48,7 @@ def simple_hash(name):
     #Setup openCL
     dev, ctx, queue = setup_CL()
 
+    #Ord(char) returns the ascii number for some character
     name = np.array([ord(char) for char in name]).astype(np.int32)
 
     #openCL Kernel
@@ -78,6 +79,7 @@ def simple_hash(name):
 
     print('golden hash: %s' % [i % 17 for i in name])
     print('openCL hash: %s' % hashed)
+    print('openCL==golden: %s' % (sum(hashed==[i % 17 for i in name])==hashed.shape[0]))
     print('opencl single time:  %.15f' % tmp)
 
 
@@ -111,6 +113,7 @@ def multi_hash(name,iterCount):
     for i in range(iterCount):
 
         #Scale length of name by iteration and convert to char
+        #Ord(char) returns the ascii number for some character
         name = np.array([ord(char) for char in refName]*(i+1)).astype(np.int32)
 
         #Move data to device
@@ -133,11 +136,13 @@ def multi_hash(name,iterCount):
             tmp.append(1e-9*(event.profile.end-event.profile.start))
         timeArray.append(np.average(tmp))
 
+        # Retrieve openCL result
         # hashed = b_dev.get()
         hashed = np.empty_like(name)
         cl.enqueue_copy(queue, hashed, b_dev)
         nameLength.append(len(hashed))
 
+        #Checking to compare result against golden if problems
         comp = sum(hashed==[i % 17 for i in name])==hashed.shape[0]
         if not(comp):
             print('golden hash: %s' % ([i % 17 for i in name]))
@@ -150,6 +155,7 @@ def multi_hash(name,iterCount):
 
     print('golden hash: %s' % [i % 17 for i in name])
     print('opencl multi hash: %s' % hashed)
+    print('openCL==golden: %s' % (sum(hashed==[i % 17 for i in name])==hashed.shape[0]))
     print('opencl multi time:  %s' % timeArray)
     print('opencl avg multi time: %.15f' % np.average(timeArray))
 
@@ -179,9 +185,12 @@ def python_simple_hash(name):
 
     hashed = np.zeros(len(name)).astype(int)
     count=0
+    #Ord(char) returns the ascii number for some character
+    name = [ord(char) for char in name]
     start = time.time()
+    #Hash all chars
     for char in name:
-        hashed[count]=ord(char) % 17
+        hashed[count]=char % 17
         count+=1
         end = time.time()-start
 
@@ -207,14 +216,17 @@ def python_multi_hash(name,iterCount):
         hashed = np.zeros(len(refName)*(i+1)).astype(int)
         count=0
         name = refName*(i+1)
+        #Ord(char) returns the ascii number for some character
+        name = [ord(char) for char in name]
         start = time.time()
+        #Hash all chars
         for char in name:
-            hashed[count]=ord(char) % 17
+            hashed[count]=char % 17
             count+=1
         timeArray.append(time.time()-start)
         nameLength.append(len(hashed))
 
-    print('python multi: %s' % hashed)
+    # print('python multi: %s' % hashed)
     print('python multi time:  %s' % timeArray)
     print('python avg multi time: %.15f' % np.average(timeArray))
 
