@@ -55,9 +55,8 @@ def transpose_square_matrix(matrix):
     #openCL Kernel
     kernel = """
     __kernel void func(__global float* a, __global float* b, const int matrix_row_size) {
-        unsigned int i = get_global_id(0);
-        unsigned int j = get_global_id(1);
-        b[i*matrix_row_size+j]=a[i+j*matrix_row_size];
+        int i = get_local_id(0);
+        b[i*get_local_size(0)+get_group_id(0)]=a[i+get_local_size(0)*get_group_id(0)];
     }
     """
 
@@ -67,22 +66,30 @@ def transpose_square_matrix(matrix):
     transpose_gpu = cl.array.empty(queue, matrix.shape, matrix_float.dtype)
 
     matrix_row_size = np.int32(matrix.shape[1])
-    # mf = cl.mem_flags
-    # matrix_row_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=matrix_row_size)
+    #
+    #Calculate threads, work size, work groups for input
+    matrix_val_count = matrix_float.shape[0]*matrix_float.shape[1]
+    # threadCounts = np.array([2, 4, 8, 16, 32, 64, 128, 256, 512, 1024])
+    # #blockThreads = 8
+    xWorkItems = min(int(matrix_row_size),1024)
+    yWorkItems = 1
+    totalWorkItems = xWorkItems
+    groups = np.int(max(np.ceil(matrix_val_count / totalWorkItems),1))
+    #
+    print("workItems: %s, matrix_val_count: %s, groups: %s" % (totalWorkItems, matrix_val_count, groups))
 
-    # matrix_val_count = matrix_float.shape[0]*matrix_float.shape[1]
-    # blockThreads = 1024.0
-    # blocks = np.int(max(np.ceil(matrix_val_count / blockThreads),1))
-    # print("matrix_val_count: %s, blocks: %s" % (matrix_val_count, blocks))
+    #Launch kernel
+    #Number of threads equal to size of name
+    # start = time.time()
+    # func(matrix_gpu, transpose_gpu, matrix_row_size, block = (xThreads,yThreads,1), grid=(blocks,1,1))
 
     #Launch kernel and time it
     #Set global ID
     prg = cl.Program(ctx, kernel).build()
     start = time.time()
-    event = prg.func(queue, matrix_float.shape, None, matrix_gpu.data, transpose_gpu.data, matrix_row_size)
+    event = prg.func(queue, (xWorkItems*xWorkItems,1),(groups,1), matrix_gpu.data, transpose_gpu.data, matrix_row_size)
     #event.wait()
     runtime = time.time()-start
-
     #Save output
     transposed = transpose_gpu.get()
 
@@ -92,13 +99,16 @@ def transpose_square_matrix(matrix):
     print('opencl %d x %d transpose time:  %.2E' % (matrix.shape[0], matrix.shape[0], runtime))
     print('openCL==golden: %s' % np.allclose(transposed, np.transpose(matrix)))
     if not(np.allclose(transposed, np.transpose(matrix))):
-        print('golden transpose: %s' % np.transpose(matrix))
-        print('openCL transpose: %s' % transposed)
+        # print('Original Matrix:\n %s' % matrix)
+        print('golden transpose:\n %s' % np.transpose(matrix))
+        transposed[(transposed>0) & (transposed<1)] = -1
+        print('openCL val:\n %s' % transposed)
+        print('openCL transpose: %s' % np.isclose(np.transpose(matrix),transposed))
 
     print('-----------------------------')
     return [transposed, runtime]
 
-def python_square_matrix_mult(matrix):
+def python_square_matrix(matrix):
     """
     Calculate transpose of square matrix NxN
     Measure runtime of transpose
@@ -145,9 +155,16 @@ if __name__=="__main__":
         print("Not developed")
     else:
         for i in range(1,11):
+
+            #Generate input
+            # tmp = np.random.rand(args.dim1*i, args.dim1*i)
+            tmp = np.zeros([args.dim1*i, args.dim1*i])
+            for i in range(tmp.shape[0]):
+                for j in range(tmp.shape[1]):
+                    tmp[i,j] = i*tmp.shape[0]+j
+
             #CPU Runtime
-            tmp = np.random.rand(args.dim1*i, args.dim1*i)
-            transposed, runtime = python_square_matrix_mult(tmp)
+            transposed, runtime = python_square_matrix(tmp)
             cpu_transpose_array.append(transposed)
             cpu_runtime_array.append(runtime)
 
