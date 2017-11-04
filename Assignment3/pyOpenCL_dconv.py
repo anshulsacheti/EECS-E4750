@@ -85,30 +85,8 @@ def dconv(matrix, filterVec, dDim):
             {{
                 Cvalue += kernelVals[t] * input[(Row - KDIM_OFFSET) * MATRIX_COL_SIZE + Col - KDIM_OFFSET + (t/KDIM)*DDIM * MATRIX_COL_SIZE + (t%KDIM)*DDIM];
                 //printf("A kernelVals[%d] = %d, input[%d] = %d, Row: %d, Col: %d\\n", t, kernelVals[t], ((Row - KDIM_OFFSET) * MATRIX_COL_SIZE + Col - KDIM_OFFSET + (t/KDIM)*DDIM * MATRIX_COL_SIZE + (t%KDIM)*DDIM), input[((Row - KDIM_OFFSET) * MATRIX_COL_SIZE + Col - KDIM_OFFSET + (t/KDIM)*DDIM * MATRIX_COL_SIZE + (t%KDIM)*DDIM)], Row, Col);
-            }} else {{
-                //printf("I kernelVals[%d] = %d, input[%d], Row<0: %d, Row>Max: %d, Col<0: %d, Col>Max:%d, Row: %d, Col: %d\\n", t, kernelVals[t], ((Row - KDIM_OFFSET) * MATRIX_COL_SIZE + Col - KDIM_OFFSET + (t/KDIM)*DDIM * MATRIX_COL_SIZE + (t%KDIM)*DDIM), (Row - KDIM_OFFSET + (t/KDIM)*DDIM) < 0, (Row - KDIM_OFFSET + (t/KDIM)*DDIM) >= MATRIX_ROW_SIZE, (Col - KDIM_OFFSET + (t%KDIM)*DDIM) < 0, (Col - KDIM_OFFSET + (t%KDIM)*DDIM) >= MATRIX_COL_SIZE, Row, Col);
             }}
-            /*Assign rows of input
-            if(t*TILE_WIDTH+tx < MATRIX_COL_SIZE && tx < MATRIX_COL_SIZE && (Row*MATRIX_COL_SIZE + t*TILE_WIDTH + tx)<MATRIX_COL_SIZE*MATRIX_ROW_SIZE) {{
-                    M[ty][tx] = input[Row*MATRIX_COL_SIZE + t*TILE_WIDTH + tx];
-            }} else {{
-                M[ty][tx] = 0.0;
-            }}
-
-            //Assign columns of transpose
-            if (t*TILE_WIDTH+ty < n && Col < MATRIX_ROW_SIZE) {{
-                N[ty][tx] = input[t*TILE_WIDTH + MATRIX_COL_SIZE*Col + ty];
-            }} else {{
-                N[ty][tx] = 0.0;
-            }}*/
-
         }}
-            //__syncthreads();
-
-            /*Sum tile
-            for (int i = 0; i < TILE_WIDTH; ++i) {{
-                Cvalue += M[ty][i] * N[i][tx];
-            }}*/
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -116,8 +94,6 @@ def dconv(matrix, filterVec, dDim):
         if(Row<MATRIX_ROW_SIZE && Col < MATRIX_COL_SIZE) {{
             convolved[Row*MATRIX_COL_SIZE + Col] = Cvalue;
             //printf("Cvalue = %d, loc = %d, Row: %d, Col: %d\\n", Cvalue, (Row*MATRIX_COL_SIZE + Col), Row, Col);
-        }} else {{
-            //printf("I Cvalue = %d, loc = %d, Row: %d, Col: %d\\n", Cvalue, (Row*MATRIX_COL_SIZE + Col), Row, Col);
         }}
     }}
     """
@@ -310,10 +286,11 @@ if __name__=="__main__":
             print("dConv:\n%s\n" % filterVec)
 
             vOutput,vTime = python_dconv_verify(tmp,filterVec,dDim)
-            dOutput,dtime = python_dconv(tmp,filterVec,dDim)
+            dOutput,dTime = python_dconv(tmp,filterVec,dDim)
             print('verifyOutput==cpuDconvOutput: %s' % np.allclose(vOutput, dOutput))
             print('dilatedConv:\n%s\n' % dOutput)
             print('verifyConv:\n%s\n' % vOutput)
+            print('cpuDilatedConvRunTime: %.2E, cpuCorrelationConvRunTime: %.2E' %(dTime, vTime))
             print("-----------------------------")
 
     if 1==0:
